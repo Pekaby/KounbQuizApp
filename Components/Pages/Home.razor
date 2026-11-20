@@ -1,0 +1,563 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.JSInterop
+@inject IWebHostEnvironment Environment
+@inject IJSRuntime JS
+
+<PageTitle>Quiz</PageTitle>
+
+<div class="quiz-page" style="@BackgroundStyle">
+    <div class="quiz-background"></div>
+    <div class="quiz-overlay"></div>
+
+    <main class="quiz-container">
+        @if (!IsFinished)
+        {
+            <header class="quiz-header">
+                <div class="quiz-counter">
+                    Вопрос @CurrentQuestionIndex из @TotalQuestions
+                </div>
+
+                <div class="progress">
+                    <div class="progress-bar" style="width: @ProgressPercent%"></div>
+                </div>
+
+                <div class="progress-text">@ProgressPercent%</div>
+            </header>
+
+            @if (CurrentQuestion is not null)
+            {
+                <section class="question-card">
+                    <h1>@CurrentQuestion.Text</h1>
+
+                    <div class="options">
+                        @for (var i = 0; i < CurrentQuestion.Options.Count; i++)
+                        {
+                            var index = i;
+
+                            <button type="button"
+                                    class="option @(SelectedOption == index ? "selected" : "")"
+                                    @onclick="() => SelectOption(index)">
+                                @CurrentQuestion.Options[index]
+                            </button>
+                        }
+                    </div>
+
+                    <button type="button"
+                            class="next-button"
+                            disabled="@(!SelectedOption.HasValue)"
+                            @onclick="NextQuestion">
+                        @(CurrentQuestionIndex < TotalQuestions ? "Следующий вопрос" : "Завершить")
+                    </button>
+                </section>
+            }
+        }
+        else
+        {
+            <section class="result-card">
+                <div class="result-emoji">@ResultEmoji</div>
+
+                <h1>@ResultMessage</h1>
+
+                <p class="result-score">
+                    Правильных ответов:
+                    <strong>@Score</strong> из <strong>@TotalQuestions</strong>
+                </p>
+
+                <div class="result-percent">@ScorePercent%</div>
+
+                <button type="button" class="restart-button" @onclick="Restart">
+                    Пройти ещё раз
+                </button>
+
+                @if (!string.IsNullOrEmpty(ResultMusic))
+                {
+                    <audio id="resultAudio"
+                           @ref="ResultAudio"
+                           preload="auto"
+                           loop>
+                        <source src="@ResultMusic" type="audio/mpeg" />
+                    </audio>
+                }
+            </section>
+        }
+    </main>
+</div>
+<script src="js/quiz.js"></script>
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        overflow: hidden;
+    }
+
+    .quiz-page {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        min-height: 100dvh;
+        overflow: hidden;
+        background: #11111b;
+        color: white;
+    }
+
+    .quiz-background {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background-image: var(--quiz-bg);
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        transform: scale(1.01);
+        transition: opacity .5s ease;
+    }
+
+    .quiz-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: rgba(0, 0, 0, .48);
+    }
+
+    .quiz-container {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        padding: clamp(20px, 4vh, 50px) clamp(16px, 4vw, 60px);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .quiz-header {
+        width: min(900px, 100%);
+        margin-bottom: 20px;
+    }
+
+    .quiz-counter {
+        margin-bottom: 10px;
+        text-align: center;
+        font-size: 18px;
+        text-shadow: 0 2px 8px rgba(0,0,0,.5);
+    }
+
+    .progress {
+        width: 100%;
+        height: 7px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255,255,255,.25);
+    }
+
+    .progress-bar {
+        height: 100%;
+        border-radius: inherit;
+        background: #c77171;
+        transition: width .3s ease;
+    }
+
+    .progress-text {
+        margin-top: 5px;
+        text-align: right;
+        font-size: 13px;
+        opacity: .8;
+    }
+
+    .question-card,
+    .result-card {
+        width: min(650px, 100%);
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: clamp(22px, 4vw, 40px);
+        border: 1px solid rgba(255,255,255,.2);
+        border-radius: 20px;
+        background: rgba(12, 12, 22, .0);
+        backdrop-filter: blur(3px);
+        box-shadow: 0 20px 70px rgba(0,0,0,.4);
+    }
+
+    .question-card h1,
+    .result-card h1 {
+        margin: 0 0 28px;
+        text-align: center;
+        @* font-size: clamp(25px, 1vw, 38px); *@
+        font-size: 24px;
+        line-height: 1.25;
+    }
+
+    .options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .option {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 17px 20px;
+        border: 1px solid #444466;
+        border-radius: 10px;
+        background: rgba(0,0,0,.08);
+        color: white;
+        font: inherit;
+        font-size: 12px;
+        line-height: 1.25;
+        text-align: center;
+        cursor: pointer;
+        transition:
+            background .2s ease,
+            border-color .2s ease,
+            transform .2s ease;
+    }
+
+    .option:hover {
+        border-color: white;
+        transform: translateY(-1px);
+    }
+
+    .option.selected {
+        background: #c77171;
+        border-color: white;
+    }
+
+    .next-button,
+    .restart-button {
+        width: 100%;
+        margin-top: 22px;
+        padding: 16px 20px;
+        border: 0;
+        border-radius: 10px;
+        background: #c77171;
+        color: white;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .next-button:disabled {
+        opacity: .4;
+        cursor: not-allowed;
+    }
+
+    .result-card {
+        text-align: center;
+    }
+
+    .result-emoji {
+        margin-bottom: 5px;
+        font-size: 18px;
+    }
+
+    .result-score {
+        font-size: 14px;
+    }
+
+    .result-percent {
+        margin: 8px 0 15px;
+        font-size: clamp(42px, 7vw, 64px);
+        font-weight: 700;
+    }
+
+    #resultAudio {
+        display: none;
+    }
+
+    @@media (max-width: 600px) {
+        .quiz-container {
+            padding: 14px 10px;
+        }
+
+        .quiz-header {
+            margin-bottom: 12px;
+        }
+
+        .question-card,
+        .result-card {
+            max-height: calc(100vh - 100px);
+            padding: 20px 14px;
+            border-radius: 14px;
+        }
+
+        .question-card h1 {
+            margin-bottom: 20px;
+        }
+
+        .option {
+            padding: 14px 12px;
+        }
+    }
+
+    @@media (max-height: 700px) and (min-width: 601px) {
+        .quiz-container {
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+
+        .question-card,
+        .result-card {
+            max-height: calc(100vh - 90px);
+            padding: 20px 28px;
+        }
+
+        .question-card h1 {
+            margin-bottom: 16px;
+        }
+
+        .option {
+            padding: 11px 16px;
+        }
+
+        .next-button {
+            margin-top: 14px;
+            padding: 12px 20px;
+        }
+    }
+</style>
+
+@code {
+    private List<QuestionItem> Questions = [];
+    private int CurrentIndex;
+    private int? SelectedOption;
+    private int Score;
+    private bool IsFinished;
+
+    private string ResultMessage = "";
+    private string ResultEmoji = "";
+    private string ResultMusic = "";
+
+    private ElementReference ResultAudio;
+    private bool _musicStarted;
+
+    private QuestionItem? CurrentQuestion =>
+        CurrentIndex >= 0 && CurrentIndex < Questions.Count
+            ? Questions[CurrentIndex]
+            : null;
+
+    private int TotalQuestions => Questions.Count;
+
+    private int CurrentQuestionIndex => CurrentIndex + 1;
+
+    private int ProgressPercent =>
+        TotalQuestions == 0
+            ? 0
+            : (int)Math.Round((double)CurrentQuestionIndex / TotalQuestions * 100);
+
+    private int ScorePercent =>
+        TotalQuestions == 0
+            ? 0
+            : (int)Math.Round((double)Score / TotalQuestions * 100);
+
+    private string BackgroundStyle =>
+        string.IsNullOrWhiteSpace(CurrentQuestion?.BackgroundImage)
+            ? ""
+            : $"--quiz-bg: url('{CurrentQuestion.BackgroundImage}')";
+
+    protected override void OnInitialized()
+    {
+        Restart();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsFinished && !string.IsNullOrEmpty(ResultMusic) && !_musicStarted)
+        {
+            _musicStarted = true;
+
+            try
+            {
+                await JS.InvokeVoidAsync("quizAudio.play");
+            }
+            catch
+            {
+                // Браузер может запретить autoplay.
+                // В таком случае музыку можно запустить вручную.
+            }
+        }
+    }
+
+    private void SelectOption(int index)
+    {
+        if (IsFinished || CurrentQuestion is null)
+            return;
+
+        // Балл начисляется только один раз за вопрос.
+        if (!SelectedOption.HasValue &&
+            index == CurrentQuestion.CorrectIndex)
+        {
+            Score++;
+        }
+
+        SelectedOption = index;
+    }
+
+    private void NextQuestion()
+    {
+        if (!SelectedOption.HasValue || IsFinished)
+            return;
+
+        if (CurrentIndex < TotalQuestions - 1)
+        {
+            CurrentIndex++;
+            SelectedOption = null;
+        }
+        else
+        {
+            FinishQuiz();
+        }
+    }
+
+    private void FinishQuiz()
+    {
+        IsFinished = true;
+
+        var percent = ScorePercent;
+
+        if (percent >= 80)
+        {
+            ResultMessage = "Блестяще! Ты настоящий эрудит!";
+            ResultEmoji = "🏆";
+        }
+        else if (percent >= 60)
+        {
+            ResultMessage = "Неплохо, но есть куда расти!";
+            ResultEmoji = "👍";
+        }
+        else if (percent >= 40)
+        {
+            ResultMessage = "Можно и лучше, подтяни знания!";
+            ResultEmoji = "📚";
+        }
+        else
+        {
+            ResultMessage = "Не сдавайся, попробуй ещё раз!";
+            ResultEmoji = "💪";
+        }
+
+        ResultMusic = percent >= 40
+            ? "/Music/good.mp3"
+            : "/Music/lose.mp3";
+    }
+
+    private void Restart()
+    {
+        CurrentIndex = 0;
+        SelectedOption = null;
+        Score = 0;
+        IsFinished = false;
+
+        ResultMessage = "";
+        ResultEmoji = "";
+        ResultMusic = "";
+        _musicStarted = false;
+
+        Questions = GetQuestions()
+            .Select(CloneAndShuffleQuestion)
+            .OrderBy(_ => Random.Shared.Next())
+            .ToList();
+    }
+
+    private static QuestionItem CloneAndShuffleQuestion(QuestionItem question)
+    {
+        var correctText = question.Options[question.CorrectIndex];
+
+        var options = question.Options
+            .OrderBy(_ => Random.Shared.Next())
+            .ToList();
+
+        return new QuestionItem
+        {
+            Text = question.Text,
+            Options = options,
+            CorrectIndex = options.IndexOf(correctText),
+            BackgroundImage = question.BackgroundImage
+        };
+    }
+
+    private List<QuestionItem> GetQuestions()
+    {
+        int[] photoIndices =
+        {
+            15, 2, 20, 21, 1, 22, 19, 4, 3, 18, 5, 23, 6,
+            24, 25, 7, 8, 26, 9, 10, 12, 11, 13, 14, 16, 17
+        };
+
+        var questions = new List<QuestionItem>
+        {
+            new() { Text = "Как называется первая русская книга, у которой известна дата создания?", Options = ["Ипатьевская летопись", "Остромирово евангелие", "Четвероевангелие"], CorrectIndex = 1 },
+            new() { Text = "Какие значимые военные события российской истории связаны с великим князем Александром Невским?", Options = ["Стояние на реке Угре", "Куликовская битва", "Битва на Чудском озере"], CorrectIndex = 2 },
+            new() { Text = "Именем какого костромского исследователя и популяризатора истории и культуры древней Руси названа улица Костромы?", Options = ["Василий Сторонин", "Алексей Румянцев", "Евгений Осетров"], CorrectIndex = 2 },
+            new() { Text = "Кто из костромских литераторов XIX века является автором перевода поэмы 'Слово о полку Игореве'?", Options = ["Н.М. Карамзин", "Н.Ф. Грамматин", "П.А. Вяземский"], CorrectIndex = 1 },
+            new() { Text = "Назовите дату создания поэмы 'Слово о полку Игореве'", Options = ["Начало XIII века", "Конец X века", "Конец XII века"], CorrectIndex = 2 },
+            new() { Text = "Назовите имя жены главного героя поэмы 'Слова о полку Игореве' князя Игоря", Options = ["Ольга", "Анна", "Ярославна"], CorrectIndex = 2 },
+            new() { Text = "Благодаря кому Костромская земля обрела свою главную святыню икону Феодоровской Божией Матери?", Options = ["Дмитрию Донскому", "Никите Костромскому", "Василию Костромскому"], CorrectIndex = 2 },
+            new() { Text = "Чей образ написан на обратной стороне иконы Феодоровской Божией Матери?", Options = ["Георгия Победоносца", "Евангелиста Луки", "Параскевы Пятницы"], CorrectIndex = 2 },
+            new() { Text = "Ополченцы из какого русского города спасли раненого князя Дмитрия Донского?", Options = ["Из Мурома", "Из Ярославля", "Из Костромы"], CorrectIndex = 2 },
+            new() { Text = "Кто из современных костромских поэтов посвятил свое произведение Куликовской битве?", Options = ["Александр Бугров", "Наталия Мусинова", "Ольга Запольских"], CorrectIndex = 2 },
+            new() { Text = "В честь чего освящен главный собор Костромского кремля?", Options = ["В честь Рождества Христова", "В честь Троицы", "В честь Успения Божией Матери"], CorrectIndex = 2 },
+            new() { Text = "Кем приходился великому русскому драматургу А.Н. Островскому настоятель Успенского собора Костромского кремля Павел Федорович Островский?", Options = ["Дедушкой", "Двоюродным братом", "Дядей"], CorrectIndex = 2 },
+            new() { Text = "Кто считается легендарным основателем Ипатьевского монастыря?", Options = ["Преподобный Никита Костромской", "Преподобный Сергий Радонежский", "Мурза Чет"], CorrectIndex = 2 },
+            new() { Text = "Какие царские династии связаны с Ипатьевским монастырем?", Options = ["Нарышкины и Лопухины", "Рюриковичи и Милославские", "Годуновы и Романовы"], CorrectIndex = 2 },
+            new() { Text = "В каком году в Ипатьевском монастыре состоялось призвание на царство отрока Михаила Федоровича?", Options = ["1610", "1612", "1613"], CorrectIndex = 2 },
+            new() { Text = "Старостой какого села был Иван Сусанин?", Options = ["Андреевское", "Спас-Хрипали", "Домнино"], CorrectIndex = 2 },
+            new() { Text = "В каком году в Костроме появился современный памятник Ивану Сусанину скульптора Никиты Лавинского?", Options = ["1958", "1973", "1967"], CorrectIndex = 2 },
+            new() { Text = "Как называется книга, посвященная событиям начала XVII века, костромского писателя А.Ф. Румянцева?", Options = ["Патриот земли Русской", "Рассказы о Сусанине", "Я видел Сусанина"], CorrectIndex = 2 },
+            new() { Text = "Сколько лет заняла подготовка к изданию первого полного атласа Российской империи?", Options = ["5 лет", "50 лет", "20 лет"], CorrectIndex = 2 },
+            new() { Text = "П.А. Вяземский и П.А. Катенин, два известных литературных деятеля XIX века, связанных с костромским краем, были награждены одним и тем же орденом. Как назывался орден?", Options = ["Орден Святого Георгия", "Орден Святой Анны 2 степени", "Орден Святого Владимира 4 степени"], CorrectIndex = 2 },
+            new() { Text = "Кто стал 'виновником' литературного знакомства Костромской поэтессы А.И. Готовцевой и А.С. Пушкина?", Options = ["К.Н. Батюшков", "П.А. Катенин", "П.А. Вяземский"], CorrectIndex = 2 },
+            new() { Text = "Каким событиям посвящена книга Павла Свиньина 'Воспоминания на флоте'?", Options = ["Синопскому сражению 1853 г.", "Русско-турецкой войне 1877-1878 гг.", "Русско-турецкой войне 1806-1812 гг. и экспедиции адмирала Д.Н. Сенявина"], CorrectIndex = 2 },
+            new() { Text = "Что сказал молодой А.С. Пушкин при первой встрече с известным литератором П.А. Катениным?", Options = ["Расскажи, поведай тайну", "Отругай, но помоги", "Побей, но выучи"], CorrectIndex = 2 },
+            new() { Text = "Как связаны поэтессы XIX века А.И. Готовцева и Ю.В. Жадовская?", Options = ["Вели литературную переписку", "Были соседями по имению", "Состояли в родстве"], CorrectIndex = 2 },
+            new() { Text = "Кому из перечисленных литераторов нет памятника в Костроме?", Options = ["А.Ф. Писемскому", "А.Н. Островскому", "Н.А. Некрасову"], CorrectIndex = 2 },
+            new() { Text = "Кто из современных костромских литераторов, писавших о Н.А. Некрасове, является автором школьного учебника по литературе?", Options = ["Д.Г. Тишинков", "Н.Н. Скатов", "Ю.В. Лебедев"], CorrectIndex = 2 }
+        };
+
+        for (var i = 0; i < questions.Count && i < photoIndices.Length; i++)
+        {
+            questions[i].BackgroundImage = FindImagePath(photoIndices[i]);
+        }
+
+        return questions;
+    }
+
+    private string FindImagePath(int photoNum)
+    {
+        var extensions = new[]
+        {
+            ".jpg", ".jpeg", ".png", ".webp",
+            ".bmp", ".gif", ".jfif", ".tiff"
+        };
+
+        var webRoot = Environment.WebRootPath;
+
+        foreach (var ext in extensions)
+        {
+            var fileName = $"photo{photoNum}{ext}";
+            var physicalPath = Path.Combine(webRoot, "Images", fileName);
+
+            if (File.Exists(physicalPath))
+            {
+                return $"/Images/{fileName}";
+            }
+        }
+
+        return "";
+    }
+
+    private sealed class QuestionItem
+    {
+        public string Text { get; set; } = "";
+        public List<string> Options { get; set; } = [];
+        public int CorrectIndex { get; set; }
+        public string BackgroundImage { get; set; } = "";
+    }
+}

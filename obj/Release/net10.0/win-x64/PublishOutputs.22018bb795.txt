@@ -1,0 +1,5 @@
+/Users/tonygreen/Projects/QuizApp/QuizWebApp/QuizWebApp/bin/Release/net10.0/win-x64/publish/appsettings.Development.json
+/Users/tonygreen/Projects/QuizApp/QuizWebApp/QuizWebApp/bin/Release/net10.0/win-x64/publish/appsettings.json
+/Users/tonygreen/Projects/QuizApp/QuizWebApp/QuizWebApp/bin/Release/net10.0/win-x64/publish/QuizWebApp.pdb
+/Users/tonygreen/Projects/QuizApp/QuizWebApp/QuizWebApp/bin/Release/net10.0/win-x64/publish/aspnetcorev2_inprocess.dll
+/Users/tonygreen/Projects/QuizApp/QuizWebApp/QuizWebApp/bin/Release/net10.0/win-x64/publish/QuizWebApp.exe

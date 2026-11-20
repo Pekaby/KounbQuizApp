@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "TqFfuJmvfq8=",
+  "success": true,
+  "projectFilePath": "/Users/tonygreen/Projects/QuizApp/QuizWebApp/QuizWebApp/QuizWebApp.csproj",
+  "expectedPackageFiles": [
+    "/Users/tonygreen/.nuget/packages/microsoft.aspnetcore.app.internal.assets/10.0.12/microsoft.aspnetcore.app.internal.assets.10.0.12.nupkg.sha512",
+    "/Users/tonygreen/.nuget/packages/microsoft.net.illink.tasks/10.0.12/microsoft.net.illink.tasks.10.0.12.nupkg.sha512",
+    "/Users/tonygreen/.nuget/packages/microsoft.netcore.app.runtime.win-x64/10.0.12/microsoft.netcore.app.runtime.win-x64.10.0.12.nupkg.sha512",
+    "/Users/tonygreen/.nuget/packages/microsoft.aspnetcore.app.runtime.win-x64/10.0.12/microsoft.aspnetcore.app.runtime.win-x64.10.0.12.nupkg.sha512",
+    "/Users/tonygreen/.nuget/packages/microsoft.netcore.app.host.win-x64/10.0.12/microsoft.netcore.app.host.win-x64.10.0.12.nupkg.sha512"
+  ],
+  "logs": []
+}
